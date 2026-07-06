@@ -4,8 +4,9 @@ import { io } from "socket.io-client";
 import "./styles.css";
 
 const PRODUCTION_API_URL = "https://to-do-list-2-3kqc.onrender.com";
-const API_BASE = import.meta.env.VITE_API_URL
-  || (window.location.hostname === "localhost" ? "" : PRODUCTION_API_URL);
+const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "");
+const API_BASE = isLocalHost ? "" : configuredApiUrl || PRODUCTION_API_URL;
 const categories = ["Work", "Personal", "Shopping", "Fitness", "Study"];
 const priorities = ["High", "Medium", "Low"];
 
@@ -18,6 +19,8 @@ function getStoredUser() {
 }
 
 async function request(path, options = {}, token) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {})
@@ -27,14 +30,26 @@ async function request(path, options = {}, token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Server response timed out. Please try again.");
+    }
+    throw new Error("Could not reach the server. Make sure the backend is running.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || "Something went wrong");
+    throw new Error(data.message || `Request failed with status ${response.status}`);
   }
 
   return data;

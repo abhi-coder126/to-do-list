@@ -15,6 +15,10 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+const EXTRA_CLIENT_URLS = (process.env.FRONTEND_URLS || "")
+  .split(",")
+  .map((url) => url.trim().replace(/\/$/, ""))
+  .filter(Boolean);
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGO_URL = process.env.MONGO_URL;
 
@@ -24,6 +28,7 @@ if (!JWT_SECRET || !MONGO_URL || !process.env.EMAIL_USER || !process.env.EMAIL_P
 
 const allowedOrigins = new Set([
   CLIENT_URL,
+  ...EXTRA_CLIENT_URLS,
   `http://localhost:${PORT}`,
   `http://127.0.0.1:${PORT}`,
   "http://localhost:5173",
@@ -335,6 +340,14 @@ function validateEmail(email) {
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api", (req, res) => {
+  res.json({
+    ok: true,
+    service: "Task Diary API",
+    company: "Andnetics"
+  });
 });
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -651,6 +664,10 @@ app.delete("/api/todos/:id", auth, async (req, res) => {
 const frontendPath = path.join(__dirname, "..", "frontend", "dist");
 app.use(express.static(frontendPath));
 app.get(/^\/(?!api).*/, (req, res, next) => {
+  if (path.extname(req.path)) {
+    return res.status(404).send("Static asset not found. Rebuild the frontend and redeploy.");
+  }
+
   res.sendFile(path.join(frontendPath, "index.html"), (error) => {
     if (error) {
       return res.status(503).send("Frontend build not found. Run `npm run build` from the project root before starting the server.");

@@ -670,6 +670,14 @@ app.get(/^\/(?!api).*/, (req, res, next) => {
 
   res.sendFile(path.join(frontendPath, "index.html"), (error) => {
     if (error) {
+      if (req.path === "/") {
+        return res.json({
+          ok: true,
+          service: "Task Diary API",
+          company: "Andnetics",
+          message: "Backend is running. Deploy the React frontend separately on Vercel or build frontend/dist to serve it from this service."
+        });
+      }
       return res.status(503).send("Frontend build not found. Run `npm run build` from the project root before starting the server.");
     }
     return undefined;

@@ -1,0 +1,3 @@
+◇ injected env (6) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Server running on port 5000
+React dev frontend should run at http://localhost:5173

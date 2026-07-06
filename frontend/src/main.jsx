@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
 import "./styles.css";
 
-const API_BASE = import.meta.env.VITE_API_URL || "";
+const PRODUCTION_API_URL = "https://to-do-list-2-3kqc.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL
+  || (window.location.hostname === "localhost" ? "" : PRODUCTION_API_URL);
 const categories = ["Work", "Personal", "Shopping", "Fitness", "Study"];
 const priorities = ["High", "Medium", "Low"];
 

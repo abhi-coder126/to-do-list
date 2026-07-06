@@ -35,9 +35,24 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173"
 ]);
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost"
+      || hostname === "127.0.0.1"
+      || hostname.endsWith(".vercel.app")
+      || hostname.endsWith(".onrender.com");
+  } catch {
+    return false;
+  }
+}
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
     return callback(new Error("Not allowed by CORS"));
@@ -50,7 +65,7 @@ app.use(express.json({ limit: "1mb" }));
 const io = new Server(server, {
   cors: {
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (isAllowedOrigin(origin)) {
         return callback(null, true);
       }
       return callback(new Error("Not allowed by CORS"));

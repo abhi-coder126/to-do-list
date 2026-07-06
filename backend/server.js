@@ -102,6 +102,9 @@ const Todo = mongoose.model("Todo", todoSchema);
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -183,6 +186,23 @@ function createLoginOtp() {
   };
 }
 
+async function sendMailWithTimeout(mailOptions) {
+  const timeoutMs = 12000;
+  let timeoutId;
+
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("Email service timed out. Please try again in a minute."));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([transporter.sendMail(mailOptions), timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function getPublicUser(user) {
   return {
     id: user._id,
@@ -194,7 +214,7 @@ function getPublicUser(user) {
 async function sendVerificationEmail(user, token) {
   const verifyLink = `${CLIENT_URL}/verify/${token}`;
 
-  await transporter.sendMail({
+  await sendMailWithTimeout({
     from: `"${BRAND_NAME} by ${COMPANY_NAME}" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject: "Verify your email for Task Diary",
@@ -216,7 +236,7 @@ async function sendVerificationEmail(user, token) {
 }
 
 async function sendLoginOtpEmail(user, otp) {
-  await transporter.sendMail({
+  await sendMailWithTimeout({
     from: `"${BRAND_NAME} Security" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject: "Your secure login code",
@@ -258,7 +278,7 @@ function todoDetailsHtml(todo) {
 async function sendTaskEmail(user, subject, heading, todo, note) {
   if (!user || !user.email) return;
 
-  await transporter.sendMail({
+  await sendMailWithTimeout({
     from: `"${BRAND_NAME} Notifications" <${process.env.EMAIL_USER}>`,
     to: user.email,
     subject,
@@ -399,7 +419,14 @@ app.post("/api/auth/signup", async (req, res) => {
       verificationTokenExpiresAt: verification.expiresAt
     });
 
-    await sendVerificationEmail(user, verification.token);
+    try {
+      await sendVerificationEmail(user, verification.token);
+    } catch (emailError) {
+      await User.deleteOne({ _id: user._id });
+      return res.status(502).json({
+        message: `Account was not created because verification email could not be sent: ${emailError.message}`
+      });
+    }
 
     return res.status(201).json({ message: "Signup successful. Please check your email to verify your account." });
   } catch (error) {
@@ -483,7 +510,17 @@ app.post("/api/auth/login", async (req, res) => {
     user.loginOtpAttempts = 0;
     await user.save();
 
-    await sendLoginOtpEmail(user, loginOtp.otp);
+    try {
+      await sendLoginOtpEmail(user, loginOtp.otp);
+    } catch (emailError) {
+      user.loginOtpHash = undefined;
+      user.loginOtpExpiresAt = undefined;
+      user.loginOtpAttempts = 0;
+      await user.save();
+      return res.status(502).json({
+        message: `Login code could not be sent: ${emailError.message}`
+      });
+    }
 
     return res.json({
       message: "Password verified. A 6-digit login code has been sent to your email.",

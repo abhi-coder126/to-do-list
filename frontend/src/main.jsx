@@ -20,7 +20,7 @@ function getStoredUser() {
 
 async function request(path, options = {}, token) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  const timeout = window.setTimeout(() => controller.abort(), 60000);
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {})
@@ -39,7 +39,7 @@ async function request(path, options = {}, token) {
     });
   } catch (error) {
     if (error.name === "AbortError") {
-      throw new Error("Server response timed out. Please try again.");
+      throw new Error("Server is taking too long to respond. Please try again.");
     }
     throw new Error("Could not reach the server. Make sure the backend is running.");
   } finally {

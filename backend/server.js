@@ -8,7 +8,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const { Server } = require("socket.io");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 const server = http.createServer(app);
@@ -653,8 +653,9 @@ app.use(express.static(frontendPath));
 app.get(/^\/(?!api).*/, (req, res, next) => {
   res.sendFile(path.join(frontendPath, "index.html"), (error) => {
     if (error) {
-      next();
+      return res.status(503).send("Frontend build not found. Run `npm run build` from the project root before starting the server.");
     }
+    return undefined;
   });
 });
 

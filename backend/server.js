@@ -492,18 +492,24 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const loginStartedAt = Date.now();
+
+    console.log(`[auth/login] Login attempt started for ${email || "missing-email"}`);
 
     const user = await User.findOne({ email });
     if (!user) {
+      console.log(`[auth/login] No user found for ${email}`);
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log(`[auth/login] Password mismatch for ${email}`);
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
     if (!user.isVerified) {
+      console.log(`[auth/login] Email not verified for ${email}`);
       return res.status(403).json({ message: "Please verify your email first" });
     }
 
@@ -514,8 +520,11 @@ app.post("/api/auth/login", async (req, res) => {
     await user.save();
 
     try {
+      console.log(`[auth/login] Sending OTP email to ${email}`);
       await sendLoginOtpEmail(user, loginOtp.otp);
+      console.log(`[auth/login] OTP email sent to ${email} in ${Date.now() - loginStartedAt}ms`);
     } catch (emailError) {
+      console.log(`[auth/login] OTP email failed for ${email}: ${emailError.message}`);
       user.loginOtpHash = undefined;
       user.loginOtpExpiresAt = undefined;
       user.loginOtpAttempts = 0;

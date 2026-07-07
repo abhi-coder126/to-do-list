@@ -1,4 +1,5 @@
 const express = require("express");
+const fs = require("fs");
 const http = require("http");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -19,6 +20,7 @@ const EXTRA_CLIENT_URLS = (process.env.FRONTEND_URLS || "")
   .split(",")
   .map((url) => url.trim().replace(/\/$/, ""))
   .filter(Boolean);
+const ALLOW_ALL_ORIGINS = EXTRA_CLIENT_URLS.includes("*") || process.env.CORS_ALLOW_ALL_ORIGINS === "true";
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGO_URL = process.env.MONGO_URL;
 
@@ -37,6 +39,7 @@ const allowedOrigins = new Set([
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
+  if (ALLOW_ALL_ORIGINS) return true;
   if (allowedOrigins.has(origin)) return true;
 
   try {
@@ -714,22 +717,33 @@ app.delete("/api/todos/:id", auth, async (req, res) => {
 });
 
 const frontendPath = path.join(__dirname, "..", "frontend", "dist");
-app.use(express.static(frontendPath));
+const frontendIndexPath = path.join(frontendPath, "index.html");
+const hasFrontendBuild = fs.existsSync(frontendIndexPath);
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendPath));
+}
+
 app.get(/^\/(?!api).*/, (req, res, next) => {
+  if (!hasFrontendBuild) {
+    if (path.extname(req.path)) {
+      return res.status(404).send("Static asset not found. This Render service is running the API only.");
+    }
+
+    return res.json({
+      ok: true,
+      service: "Task Diary API",
+      company: "Andnetics",
+      message: "Backend is running. Open the Vercel frontend URL to use the app."
+    });
+  }
+
   if (path.extname(req.path)) {
     return res.status(404).send("Static asset not found. Rebuild the frontend and redeploy.");
   }
 
-  res.sendFile(path.join(frontendPath, "index.html"), (error) => {
+  res.sendFile(frontendIndexPath, (error) => {
     if (error) {
-      if (req.path === "/") {
-        return res.json({
-          ok: true,
-          service: "Task Diary API",
-          company: "Andnetics",
-          message: "Backend is running. Deploy the React frontend separately on Vercel or build frontend/dist to serve it from this service."
-        });
-      }
       return res.status(503).send("Frontend build not found. Run `npm run build` from the project root before starting the server.");
     }
     return undefined;

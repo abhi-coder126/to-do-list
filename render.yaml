@@ -2,9 +2,11 @@ services:
   - type: web
     name: to-do-list-api
     env: node
+    rootDir: backend
     plan: free
-    buildCommand: npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 20

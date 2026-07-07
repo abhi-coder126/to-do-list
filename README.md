@@ -4,7 +4,7 @@ MERN Todo app with email verification, login OTP, task categories, priorities, d
 
 ## Deploy Backend On Render
 
-Use the `backend` folder as the Render root.
+Use the `backend` folder as the Render root. If you deploy with `render.yaml`, it already sets `rootDir: backend`.
 
 ```txt
 Root Directory: backend
@@ -27,6 +27,7 @@ Backend health check:
 
 ```txt
 https://to-do-list-2-3kqc.onrender.com/api
+https://to-do-list-2-3kqc.onrender.com/api/health
 ```
 
 ## Deploy Frontend On Vercel
@@ -44,6 +45,8 @@ Add this Vercel environment variable:
 ```txt
 VITE_API_URL=https://to-do-list-2-3kqc.onrender.com
 ```
+
+After changing Vercel environment variables, redeploy the frontend. Vite reads `VITE_API_URL` at build time, so the old deployment will not pick it up automatically.
 
 ## Local Development
 
